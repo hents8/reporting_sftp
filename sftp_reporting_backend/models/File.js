@@ -7,7 +7,8 @@ const fileSchema = new mongoose.Schema({
   size: Number,
   modified: Date,
   extension: String,
-  syncDate: { type: Date, default: Date.now }
+  syncDate: { type: Date, default: Date.now },
+  thumbnail: { type: String, default: null }
 });
 
 export default mongoose.model("File", fileSchema);

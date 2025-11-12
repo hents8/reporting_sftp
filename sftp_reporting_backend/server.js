@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import fileRoutes from "./routes/files.js";
 import { connectSFTP } from "./services/sftpService.js";
+import { syncFolder } from "./utils/syncSFTP.js"; // ✅ ajoute cette ligne
 
 dotenv.config();
 const app = express();
@@ -16,12 +17,16 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connecté"))
   .catch(err => console.error("❌ Erreur MongoDB :", err));
 
-// Connect SFTP au démarrage
+// Connect SFTP au démarrage puis sync
 connectSFTP()
-  .then(() => console.log("📡 SFTP connecté"))
+  .then(async () => {
+    console.log("📡 SFTP connecté");
+    console.log("🚀 Lancement de la synchronisation SFTP...");
+    await syncFolder("/sam_bebe/POUR_CLIENT"); // ✅ appel ici
+  })
   .catch(err => console.error("❌ Erreur SFTP :", err));
 
-// Routes
+// Routes API
 app.use("/api/files", fileRoutes);
 
 // Lancer serveur

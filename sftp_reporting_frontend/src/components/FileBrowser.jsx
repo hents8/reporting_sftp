@@ -7,45 +7,13 @@ export default function FileBrowser() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState([]);
   const [viewMode, setViewMode] = useState("list");
-  const [filter, setFilter] = useState({ name: "", type: "" });
+  const [filter, setFilter] = useState({ name: "" });
   const [page, setPage] = useState(1);
-  const pageSize = 50;
   const [sortField, setSortField] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
+  const pageSize = 50;
 
-const handleSort = (field) => {
-  if (sortField === field) {
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-  } else {
-    setSortField(field);
-    setSortOrder("asc");
-  }
-};
-
-const sortedFiles = [...files].sort((a, b) => {
-  let valA, valB;
-
-  if (sortField === "name") {
-    valA = a.name.toLowerCase();
-    valB = b.name.toLowerCase();
-  } else if (sortField === "type") {
-    valA = a.isDirectory ? "dossier" : (a.name.split('.').pop() || "").toLowerCase();
-    valB = b.isDirectory ? "dossier" : (b.name.split('.').pop() || "").toLowerCase();
-  } else if (sortField === "size") {
-    valA = a.size || 0;
-    valB = b.size || 0;
-  } else if (sortField === "modified") {
-    valA = new Date(a.modified);
-    valB = new Date(b.modified);
-  }
-
-  if (valA < valB) return sortOrder === "asc" ? -1 : 1;
-  if (valA > valB) return sortOrder === "asc" ? 1 : -1;
-  return 0;
-});
-
-
-  // 🔁 Charger les fichiers depuis le backend
+  // 📡 Charger les fichiers
   useEffect(() => {
     setLoading(true);
     fetch(`http://localhost:5000/api/files?path=${encodeURIComponent(currentPath)}`)
@@ -62,7 +30,7 @@ const sortedFiles = [...files].sort((a, b) => {
       });
   }, [currentPath]);
 
-  // 🧮 Conversion taille auto
+  // 🧮 Conversion taille lisible
   const formatSize = (bytes) => {
     if (!bytes || bytes === 0) return "—";
     if (bytes < 1024) return `${bytes} o`;
@@ -71,17 +39,14 @@ const sortedFiles = [...files].sort((a, b) => {
   };
 
   const openFolder = (file) => {
-    if (file.type === "directory") {
-      setCurrentPath(file.path);
-    }
+    if (file.type === "directory") setCurrentPath(file.path);
   };
 
   const goBack = () => {
     if (currentPath === "/sam_bebe/POUR_CLIENT") return;
     const parts = currentPath.split("/").filter(Boolean);
     parts.pop();
-    const parentPath = "/" + parts.join("/");
-    setCurrentPath(parentPath || "/sam_bebe/POUR_CLIENT");
+    setCurrentPath("/" + parts.join("/") || "/sam_bebe/POUR_CLIENT");
   };
 
   const toggleSelect = (path) => {
@@ -95,28 +60,50 @@ const sortedFiles = [...files].sort((a, b) => {
     alert(`📦 Téléchargement ZIP lancé pour ${selected.length} élément(s)`);
   };
 
-  // 🔍 Filtres appliqués
+  // 🔍 Filtrage
   const filteredFiles = useMemo(() => {
-    return files.filter((f) => {
-      const matchesName = f.name.toLowerCase().includes(filter.name.toLowerCase());
-      const matchesType =
-        !filter.type || f.type === filter.type || f.extension === filter.type;
-      return matchesName && matchesType;
-    });
+    return files.filter((f) =>
+      f.name.toLowerCase().includes(filter.name.toLowerCase())
+    );
   }, [files, filter]);
 
-  // 📄 Pagination
-  const totalPages = Math.ceil(filteredFiles.length / pageSize);
-  const paginatedFiles = filteredFiles.slice((page - 1) * pageSize, page * pageSize);
-
-  const changePage = (newPage) => {
-    if (newPage < 1 || newPage > totalPages) return;
-    setPage(newPage);
+  // 🔽 Tri
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
   };
+
+  const sortedFiles = [...filteredFiles].sort((a, b) => {
+    let valA, valB;
+    if (sortField === "name") {
+      valA = a.name.toLowerCase();
+      valB = b.name.toLowerCase();
+    } else if (sortField === "type") {
+      valA = a.type === "directory" ? "dossier" : (a.extension || "").toLowerCase();
+      valB = b.type === "directory" ? "dossier" : (b.extension || "").toLowerCase();
+    } else if (sortField === "size") {
+      valA = a.size || 0;
+      valB = b.size || 0;
+    } else if (sortField === "modified") {
+      valA = new Date(a.modified);
+      valB = new Date(b.modified);
+    }
+    if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+    if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  // 📄 Pagination
+  const totalPages = Math.ceil(sortedFiles.length / pageSize);
+  const paginatedFiles = sortedFiles.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="file-browser">
-      {/* 🧭 Barre fixe en haut */}
+      {/* 🧭 Header fixe */}
       <div className="toolbar-header">
         <div className="toolbar-left">
           <button
@@ -136,31 +123,17 @@ const sortedFiles = [...files].sort((a, b) => {
             onChange={(e) => setFilter({ ...filter, name: e.target.value })}
             className="filter-input"
           />
-          <select
-            value={filter.type}
-            onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-            className="filter-select"
-          >
-            <option value="">Tous</option>
-            <option value="directory">Dossier</option>
-            <option value="file">Fichier</option>
-            <option value="pdf">PDF</option>
-            <option value="jpg">Image JPG</option>
-            <option value="xlsx">Excel</option>
-          </select>
           <button
             onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
             className="toolbar-button"
           >
-            {viewMode === "list" ? "🗂️ Vue grille" : "📋 Vue liste"}
+            {viewMode === "list" ? "🗂️ Grille" : "📋 Liste"}
           </button>
-          <button onClick={downloadZip} className="toolbar-button">
-            ⬇️ ZIP
-          </button>
+          <button onClick={downloadZip} className="toolbar-button">⬇️ ZIP</button>
         </div>
       </div>
 
-      {/* 🧾 Contenu */}
+      {/* 📁 Contenu */}
       <div className="content">
         {loading ? (
           <p className="loading-message">Chargement...</p>
@@ -171,10 +144,18 @@ const sortedFiles = [...files].sort((a, b) => {
             <thead>
               <tr className="table-header">
                 <th>Sélection</th>
-                <th>Nom</th>
-                <th>Type</th>
-                <th>Taille</th>
-                <th>Modifié</th>
+                <th onClick={() => handleSort("name")} className="sortable">
+                  Nom {sortField === "name" && (sortOrder === "asc" ? "↑" : "↓")}
+                </th>
+                <th onClick={() => handleSort("type")} className="sortable">
+                  Type {sortField === "type" && (sortOrder === "asc" ? "↑" : "↓")}
+                </th>
+                <th onClick={() => handleSort("size")} className="sortable">
+                  Taille {sortField === "size" && (sortOrder === "asc" ? "↑" : "↓")}
+                </th>
+                <th onClick={() => handleSort("modified")} className="sortable">
+                  Modifié {sortField === "modified" && (sortOrder === "asc" ? "↑" : "↓")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -204,34 +185,65 @@ const sortedFiles = [...files].sort((a, b) => {
             </tbody>
           </table>
         ) : (
-          <div className="grid">
-            {paginatedFiles.map((file) => (
-              <div
-                key={file.path}
-                onDoubleClick={() => openFolder(file)}
-                className="grid-item"
-              >
-                <input
-                  type="checkbox"
-                  className="checkbox"
-                  checked={selected.includes(file.path)}
-                  onChange={() => toggleSelect(file.path)}
-                />
-                <div className="icon">{file.type === "directory" ? "📁" : "📄"}</div>
-                <div className="name">{file.name}</div>
-              </div>
-            ))}
-          </div>
+          <div className="grid-view">
+  {files.map((file) => {
+    const isSelected = selected.includes(file.path);
+    return (
+			 <div
+				  key={file.path}
+				  onDoubleClick={() => openFolder(file)}
+				  className={`grid-item ${isSelected ? "selected" : ""}`}
+				>
+				  <div className="grid-icon">
+					{file.thumbnail ? (
+					  <img
+						src={file.thumbnail}
+						alt={file.name}
+						className="thumbnail-img"
+					  />
+					) : file.type === "directory" ? (
+					  "📁"
+					) : (
+					  "📄"
+					)}
+				  </div>
+
+				  <div className="grid-info">
+					<div className="file-name">{file.name}</div>
+					<div className="file-meta">
+					  {file.type === "directory"
+						? "Dossier"
+						: file.extension
+						? file.extension?.toUpperCase()
+					    :"-"}
+					  {file.size
+						? file.size > 1048576
+						  ? `${(file.size / 1048576).toFixed(1)} Mo`
+						  : `${(file.size / 1024).toFixed(0)} Ko`
+						: "—"}
+					</div>
+				  </div>
+
+				  <input
+					type="checkbox"
+					className="checkbox-overlay"
+					checked={isSelected}
+					onChange={() => toggleSelect(file.path)}
+				  />
+				</div>
+			);
+		  })}
+		</div>
         )}
       </div>
 
       {/* 📄 Pagination */}
       <div className="pagination">
-        <button onClick={() => changePage(page - 1)} disabled={page <= 1}>
+        <button onClick={() => setPage(page - 1)} disabled={page <= 1}>
           ⬅️ Précédent
         </button>
         <span>Page {page} / {totalPages || 1}</span>
-        <button onClick={() => changePage(page + 1)} disabled={page >= totalPages}>
+        <button onClick={() => setPage(page + 1)} disabled={page >= totalPages}>
           Suivant ➡️
         </button>
       </div>

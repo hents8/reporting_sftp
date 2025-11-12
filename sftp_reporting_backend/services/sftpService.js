@@ -13,16 +13,24 @@ export async function connectSFTP() {
 export async function listRemoteFiles(remotePath = "/") {
   try {
     const list = await sftp.list(remotePath);
+    list.forEach(item => console.log(item.name, item.type, item.longname));
+
     return list.map(item => ({
       name: item.name,
       path: remotePath === "/" ? `/${item.name}` : `${remotePath}/${item.name}`,
-      type: item.type === "d" ? "directory" : "file",
+      type: item.type, // <-- garde "d" ou "-"
       size: item.size,
       modified: item.modifyTime,
-      extension: item.type === "d" ? null : item.name.split(".").pop() || null
+      extension: item.type === "d" ? "" : (item.name.split(".").pop() || "")
     }));
   } catch (err) {
     console.error("❌ Erreur SFTP list:", err);
     return [];
   }
+}
+
+
+
+export async function downloadRemoteFile(remotePath) {
+  return await sftp.get(remotePath);
 }
